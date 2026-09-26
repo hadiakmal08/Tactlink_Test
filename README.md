@@ -92,9 +92,3 @@ Scan the QR code with the **Expo Go** app (iOS/Android).
 - Mobile app (Expo + Apollo + offline cache): ~2.5 hours
 - README, cleanup, end-to-end testing: ~30 minutes
 
-## Next steps with more time
-
-- Swap in-memory storage for DynamoDB
-- Add refresh tokens and password reset
-- Unit/integration tests for resolvers
-- Queue offline mutations on mobile instead of disabling "Add" while offline
