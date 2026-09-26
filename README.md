@@ -1,65 +1,100 @@
-# Web - React To-Do App
+# To-Do App — Full-Stack Take-Home Assessment
 
-React + Vite + Tailwind CSS v4. Talks to the same GraphQL backend as the
-mobile app, via a small `fetch`-based client (no Apollo Client needed here).
+A minimal to-do app with login/signup, built across three clients (mobile, web,
+backend) sharing one GraphQL API.
 
-## Setup
+## Live links
 
+- **Web app (Vercel):** https://tactlink-test.vercel.app
+- **Backend (AWS Lambda Function URL):** https://g4kz4lvgopdkoga6ps4yxhzqyu0tdrly.lambda-url.ap-southeast-1.on.aws/
+
+## Repository structure
+
+```
+backend/   Node.js + Apollo Server GraphQL API (JWT auth, user-scoped to-dos)
+web/       React + Vite + Tailwind CSS web app
+mobile/    React Native (Expo) mobile app
+```
+
+Each folder has its own README with setup details specific to that part.
+
+## Setup — run everything locally
+
+### 1. Backend
 ```bash
+cd backend
 npm install
-copy .env.example .env.local     # Windows; cp on Mac/Linux
+copy .env.example .env      # Windows; cp on Mac/Linux
+# edit .env and set JWT_SECRET to any long random string
+npm run dev
 ```
+Runs at `http://localhost:4000`. Apollo Sandbox is available there for manual testing.
 
-Edit `.env.local` and point `VITE_GRAPHQL_URL` at your backend:
-
-```
-VITE_GRAPHQL_URL=http://localhost:4000
-```
-
-(or your deployed Lambda Function URL, e.g.
-`https://xxxx.lambda-url.ap-southeast-1.on.aws/`)
-
-Then run:
-
+### 2. Web
 ```bash
+cd web
+npm install
+copy .env.example .env.local
+# set VITE_GRAPHQL_URL to http://localhost:4000 (or the live Lambda URL)
 npm run dev
 ```
 
-Open the printed `localhost` URL. Sign up with a new email, then add, toggle,
-and delete a task (deleting asks for confirmation first).
-
-## Build for production
-
+### 3. Mobile
 ```bash
-npm run build      # outputs to dist/
-npm run preview    # serve the production build locally to sanity-check it
+cd mobile
+npm install
+copy .env.example .env
+# set EXPO_PUBLIC_GRAPHQL_URL — use the live Lambda URL so it works from any
+# phone; localhost will NOT work from a physical device
+npx expo start
 ```
+Scan the QR code with the **Expo Go** app (iOS/Android).
 
-## Structure
+## Architecture decisions
 
-- `src/lib/graphql.js` — one function that POSTs `{ query, variables }` to
-  the backend and attaches the JWT from `localStorage`
-- `src/lib/auth.jsx` — React context for the logged-in user; signup/login/
-  logout; persists `token` + `user` to `localStorage` so a page refresh
-  keeps you logged in
-- `src/pages/Login.jsx` — combined login/signup form
-- `src/pages/Todos.jsx` — list, add, toggle, delete (with optimistic UI on
-  toggle/delete, rolled back if the server call fails)
-- `src/components/ConfirmDialog.jsx` — the delete-confirmation popup
-- `src/components/ProtectedRoute.jsx` — redirects to `/login` if not
-  authenticated
+- **GraphQL over REST**, per the brief — one Apollo Server schema serves both
+  web and mobile, so business logic (auth, validation, user-scoping) lives in
+  one place (`backend/src/resolvers.js`).
+- **JWT auth**, verified per-request in `backend/src/auth.js`. Every resolver
+  that touches to-dos calls `requireUser(ctx)` first, so a to-do can only ever
+  be read/changed by the user who owns it (user-scoping is enforced server-side,
+  not just filtered in the UI).
+- **Storage layer is isolated** (`backend/src/db.js`): everything else in the
+  backend calls small functions like `findTodo`/`createTodo` rather than
+  touching data directly. Swapping in-memory/JSON-file storage for DynamoDB or
+  a real database later means changing only this one file.
+- **No Apollo Client on web** — a small `fetch`-based GraphQL helper
+  (`web/src/lib/graphql.js`) instead, since the app's needs are simple and it
+  keeps the code easy to read line-by-line.
+- **Apollo Client on mobile**, specifically for its normalized cache and
+  `apollo3-cache-persist`, which gives the offline bonus (cached to-dos still
+  render with no network) with very little extra code.
+- **AWS Lambda + Function URL** rather than API Gateway: cheaper and enough
+  for this scale, with CORS configured directly on the Function URL.
 
-## Deploy to Vercel
+## Known limitations / trade-offs
 
-1. Push this repo to GitHub (repo root has `backend/`, `web/`, `mobile/`).
-2. On vercel.com: **Add New -> Project** -> import the repo.
-3. Set **Root Directory** to `web` — required, since the app lives in a
-   subfolder of the repo.
-4. Framework preset: **Vite** (auto-detected).
-5. Add environment variable `VITE_GRAPHQL_URL` = your Lambda Function URL,
-   applied to **Production** (and Preview if you want branch previews to
-   work too).
-6. Deploy.
+- **Data is not permanent.** The backend stores users/to-dos in memory
+  (JSON-file-backed locally, memory-only on Lambda since its filesystem is
+  read-only). Data resets on cold starts or redeploys. A production version
+  would use DynamoDB — only `backend/src/db.js` would need to change.
+- **Auth is intentionally simple** (per the brief's "dummy auth"): JWTs with a
+  7-day expiry, no refresh tokens, no password reset flow.
+- **Mobile offline support is read + toggle/delete only.** Adding a new to-do
+  is disabled while offline rather than silently queuing it, to avoid data
+  that looks saved but isn't.
 
-`vercel.json` in this folder adds a rewrite so that direct/refreshed loads
-of client-side routes like `/login` and `/todos` don't 404 on Vercel.
+## Time taken
+
+- Backend (GraphQL API + JWT auth + tests): ~2 hours
+- AWS Lambda deployment: ~1 hour
+- Web app (React + Tailwind + design pass): ~2 hours
+- Mobile app (Expo + Apollo + offline cache): ~2.5 hours
+- README, cleanup, end-to-end testing: ~30 minutes
+
+## Next steps with more time
+
+- Swap in-memory storage for DynamoDB
+- Add refresh tokens and password reset
+- Unit/integration tests for resolvers
+- Queue offline mutations on mobile instead of disabling "Add" while offline
