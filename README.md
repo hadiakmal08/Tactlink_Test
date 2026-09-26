@@ -86,7 +86,7 @@ Scan the QR code with the **Expo Go** app (iOS/Android).
 
 ## Time taken
 
-- Backend (GraphQL API + JWT auth + tests): ~2 hours
+- Backend (GraphQL API + JWT auth + tests): ~2.5 hours
 - AWS Lambda deployment: ~1 hour
 - Web app (React + Tailwind + design pass): ~2 hours
 - Mobile app (Expo + Apollo + offline cache): ~2.5 hours
